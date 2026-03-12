@@ -1,0 +1,23 @@
+# Backend Dependencies
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+sqlalchemy>=2.0
+alembic>=1.14
+asyncpg>=0.30
+pydantic>=2.10
+pydantic-settings>=2.6
+
+# AI Agent
+langgraph>=0.2
+langchain-anthropic>=0.3
+langchain-core>=0.3
+
+# External APIs
+amadeus>=9.0
+httpx>=0.28
+aiohttp>=3.11
+
+# Utils
+python-dotenv>=1.0
+python-multipart>=0.0.18
+websockets>=14.0
