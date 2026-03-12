@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 type Step = "destination" | "transport" | "dates" | "budget" | "preferences";
@@ -42,9 +42,17 @@ const LODGING_OPTIONS = [
   { value: "mixed", label: "Mixed", icon: "🔀" },
 ];
 
+function calcDurationDays(startDate: string, endDate: string): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diff = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+  return diff >= 0 ? diff + 1 : 0;
+}
+
 export default function NewTripPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<Step>("destination");
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     destination: "",
     destinationType: "trail",
@@ -52,13 +60,17 @@ export default function NewTripPage() {
     transport: "flight",
     startDate: "2026-06-15",
     endDate: "2026-06-22",
-    durationDays: 8,
+    durationDays: calcDurationDays("2026-06-15", "2026-06-22"),
     budget: 1500,
     currency: "EUR",
     travelers: 2,
     activityLevel: "intense",
     lodging: "refuge",
   });
+
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, durationDays: calcDurationDays(prev.startDate, prev.endDate) }));
+  }, [form.startDate, form.endDate]);
 
   const stepIndex = STEPS.findIndex((s) => s.key === currentStep);
 
@@ -75,6 +87,8 @@ export default function NewTripPage() {
   };
 
   const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
     try {
       const { createTrip } = await import("@/lib/api");
       const trip = await createTrip({
@@ -93,6 +107,7 @@ export default function NewTripPage() {
       });
       router.push(`/trips/${trip.id}`);
     } catch {
+      setSubmitting(false);
       router.push("/dashboard");
     }
   };
@@ -329,9 +344,10 @@ export default function NewTripPage() {
         ) : (
           <button
             onClick={handleSubmit}
-            className="rounded-lg bg-[var(--primary)] px-6 py-2 text-sm font-medium text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
+            disabled={submitting}
+            className="rounded-lg bg-[var(--primary)] px-6 py-2 text-sm font-medium text-[var(--primary-foreground)] hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            🤖 Generate Itinerary with AI
+            {submitting ? "⏳ Generating..." : "🤖 Generate Itinerary with AI"}
           </button>
         )}
       </div>
