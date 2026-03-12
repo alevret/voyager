@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useRef } from "react";
 import { fetchTrip, chatWithAgent } from "@/lib/api";
 import type { ChatMessage } from "@/lib/types";
 
@@ -49,6 +49,11 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, chatLoading]);
 
   useEffect(() => {
     fetchTrip(id)
@@ -293,6 +298,7 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
                 <div className="animate-pulse">Thinking...</div>
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
           <div className="border-t border-[var(--border)] p-3">
             <div className="flex gap-2">
@@ -300,13 +306,15 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                onKeyDown={(e) => e.key === "Enter" && !chatLoading && input.trim() && handleSend()}
                 placeholder="Ask me anything..."
-                className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]"
+                disabled={chatLoading}
+                className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)] disabled:opacity-60"
               />
               <button
                 onClick={handleSend}
-                className="rounded-lg bg-[var(--primary)] px-3 py-2 text-sm text-[var(--primary-foreground)] hover:opacity-90 transition-opacity"
+                disabled={chatLoading || !input.trim()}
+                className="rounded-lg bg-[var(--primary)] px-3 py-2 text-sm text-[var(--primary-foreground)] hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Send
               </button>
