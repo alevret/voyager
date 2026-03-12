@@ -1,6 +1,7 @@
 """AI Agent chat router."""
 
 import os
+import httpx
 from fastapi import APIRouter, HTTPException
 from app.models.schemas import ChatRequest, ChatResponse
 from app.services.trip_store import get_trip
@@ -20,6 +21,41 @@ Be concise, practical, and enthusiastic about travel. Use emojis sparingly for c
 When discussing hiking trails like the GR20, emphasize safety, preparation, and realistic expectations."""
 
 
+async def _call_claude(system_prompt: str, user_message: str) -> str:
+    """Call Claude via Azure Databricks serving endpoint (OpenAI-compatible)."""
+    endpoint = os.getenv("ANTHROPIC_API_ENDPOINT")
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+
+    if not endpoint or not api_key or api_key == "xxxxx":
+        raise ValueError("ANTHROPIC_API_ENDPOINT and ANTHROPIC_API_KEY must be set")
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(
+            endpoint,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message},
+                ],
+                "max_tokens": 1024,
+            },
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        # Databricks returns OpenAI-compatible format
+        if "choices" in data:
+            return data["choices"][0]["message"]["content"]
+        # Anthropic native format fallback
+        if "content" in data:
+            return data["content"][0]["text"]
+        raise ValueError(f"Unexpected response format: {list(data.keys())}")
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     trip = get_trip(request.trip_id)
@@ -27,12 +63,10 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=404, detail="Trip not found")
 
     api_key = os.getenv("ANTHROPIC_API_KEY")
+    endpoint = os.getenv("ANTHROPIC_API_ENDPOINT")
 
-    if api_key and not api_key.startswith("sk-ant-xxxxx"):
-        # Use real Claude API
+    if api_key and endpoint and not api_key.startswith("xxxxx"):
         try:
-            import anthropic
-            client = anthropic.Anthropic(api_key=api_key)
             trip_context = (
                 f"Trip: {trip.name} | Destination: {trip.destination} | "
                 f"Dates: {trip.start_date} to {trip.end_date} | "
@@ -40,19 +74,16 @@ async def chat(request: ChatRequest):
                 f"Transport: {trip.transport} | Lodging: {trip.lodging} | "
                 f"Activity level: {trip.activity_level}"
             )
-            message = client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=1024,
-                system=f"{AGENT_SYSTEM_PROMPT}\n\nCurrent trip context: {trip_context}",
-                messages=[{"role": "user", "content": request.message}],
+            content = await _call_claude(
+                system_prompt=f"{AGENT_SYSTEM_PROMPT}\n\nCurrent trip context: {trip_context}",
+                user_message=request.message,
             )
-            return ChatResponse(content=message.content[0].text)
+            return ChatResponse(content=content)
         except Exception as e:
             return ChatResponse(
                 content=f"Agent error: {str(e)}. Falling back to demo mode."
             )
     else:
-        # Demo mode without API key
         return _demo_response(request.message, trip)
 
 

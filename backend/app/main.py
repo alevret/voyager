@@ -1,5 +1,11 @@
 """Voyager Backend — FastAPI Application"""
 
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env from project root
+load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import trips, agent
