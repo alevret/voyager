@@ -2,6 +2,7 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.routers import trips, agent
 
 app = FastAPI(
     title="Voyager API",
@@ -16,6 +17,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(trips.router)
+app.include_router(agent.router)
 
 
 @app.get("/health")
